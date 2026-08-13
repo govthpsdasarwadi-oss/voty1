@@ -36,7 +36,7 @@
         }
 
         input {
-            /* Re-enable text input selection for typing */
+            /* Re-enable text selection for input typing */
             -webkit-user-select: text;
             -moz-user-select: text;
             -ms-user-select: text;
@@ -204,8 +204,21 @@
             transition: opacity 0.2s;
         }
 
-        .btn-capture:hover, .btn-retake:hover { opacity: 0.9; }
-        .btn-capture:disabled, .btn-retake:disabled { background: #94a3b8; cursor: not-allowed; }
+        .btn-capture-inline {
+            background-color: var(--primary);
+            color: white;
+            font-size: 13px;
+            font-weight: bold;
+            padding: 0 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: opacity 0.2s;
+        }
+
+        .btn-capture:hover, .btn-retake:hover, .btn-capture-inline:hover { opacity: 0.9; }
+        .btn-capture:disabled, .btn-retake:disabled, .btn-capture-inline:disabled { background: #94a3b8; cursor: not-allowed; }
 
         .form-group {
             margin-top: 10px;
@@ -523,9 +536,9 @@
             <div class="frame-overlay" id="cropFrame"></div>
         </div>
 
-        <!-- Capture & Retake Button Row -->
+        <!-- Camera Action Row -->
         <div class="camera-action-row">
-            <button class="btn-capture" id="captureBtn" onclick="captureFramedPhoto()">📸 Capture & Upload</button>
+            <button class="btn-capture" id="captureBtn" onclick="captureFramedPhoto(true)">📸 Capture & Next (+1)</button>
             <button class="btn-retake" id="retakeBtn" onclick="retakePhoto()">🔄 Retake</button>
         </div>
 
@@ -556,10 +569,13 @@
             </div>
         </div>
 
-        <!-- Strictly Numeric Serial Number -->
+        <!-- Image Serial Number + Direct Capture Button -->
         <div class="form-group">
             <label for="serialNumberInput">🔢 Image Serial Number (Digits Only):</label>
-            <input type="number" id="serialNumberInput" placeholder="e.g. 101" value="1" min="1" step="1" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+            <div class="input-row">
+                <input type="number" id="serialNumberInput" placeholder="Enter Serial No. (e.g. 5)" value="1" min="1" step="1" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                <button type="button" class="btn-capture-inline" id="captureInlineBtn" onclick="captureFramedPhoto(false)" title="Capture using entered serial number">🎯 Capture This Serial</button>
+            </div>
         </div>
     </div>
 
@@ -623,11 +639,18 @@
         });
     };
 
-    // Delete single image
+    // Delete single image & automatically set its serial number into input box
     window.deleteSingleImageFromCloud = async function(folderPath, fileKey) {
-        if(confirm(`Delete image "${fileKey.replace('img_', '')}.jpg"?`)) {
+        const deletedSerialNum = fileKey.replace('img_', '');
+        if(confirm(`Delete image "${deletedSerialNum}.jpg"?`)) {
             const imageRef = ref(db, `synced_folders/${folderPath}/${fileKey}`);
             await remove(imageRef);
+            
+            // Set deleted image's serial number back into the input box
+            const serialInput = document.getElementById('serialNumberInput');
+            if (serialInput) {
+                serialInput.value = deletedSerialNum;
+            }
         }
     };
 
@@ -785,7 +808,7 @@
     }
 
     // Crop within Fixed Frame & Upload
-    async function captureFramedPhoto() {
+    async function captureFramedPhoto(shouldIncrement = true) {
         const folder = document.getElementById('folderName').value.trim() || 'General';
         const category = document.getElementById('categoryName').value.trim() || 'Default';
         const classification = document.getElementById('classificationName').value.trim() || 'Unclassified';
@@ -793,7 +816,8 @@
         let currentSerial = serialInput.value.replace(/\D/g, '');
 
         if (!currentSerial) {
-            alert("Please provide a numeric serial number.");
+            alert("Please enter a valid numeric serial number.");
+            serialInput.focus();
             return;
         }
 
@@ -803,8 +827,15 @@
         }
 
         const captureBtn = document.getElementById('captureBtn');
+        const captureInlineBtn = document.getElementById('captureInlineBtn');
         captureBtn.disabled = true;
-        captureBtn.innerText = "⏳ Uploading...";
+        captureInlineBtn.disabled = true;
+
+        if (shouldIncrement) {
+            captureBtn.innerText = "⏳ Uploading...";
+        } else {
+            captureInlineBtn.innerText = "⏳ Uploading...";
+        }
 
         // Precise frame calculations
         const vpRect = viewport.getBoundingClientRect();
@@ -836,13 +867,19 @@
         try {
             if (typeof window.uploadPhotoToCloud === 'function') {
                 await window.uploadPhotoToCloud(folderPath, currentSerial, dataUrl);
-                serialInput.value = parseInt(currentSerial, 10) + 1;
+                
+                // If auto-increment mode is active, increment number box by 1
+                if (shouldIncrement) {
+                    serialInput.value = parseInt(currentSerial, 10) + 1;
+                }
             }
         } catch(e) {
             alert("Upload failed: " + e.message);
         } finally {
             captureBtn.disabled = false;
-            captureBtn.innerText = "📸 Capture & Upload";
+            captureInlineBtn.disabled = false;
+            captureBtn.innerText = "📸 Capture & Auto-Increment (+1)";
+            captureInlineBtn.innerText = "🎯 Capture This Serial";
         }
     }
 
