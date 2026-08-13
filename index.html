@@ -28,6 +28,19 @@
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             -webkit-tap-highlight-color: transparent;
+            /* Disable text selection and image drag */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        input {
+            /* Re-enable text input selection for typing */
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
         }
 
         body {
@@ -339,6 +352,7 @@
             object-fit: cover;
             display: block;
             cursor: pointer;
+            pointer-events: auto;
         }
 
         .photo-card .photo-label {
@@ -469,7 +483,7 @@
         }
     </style>
 </head>
-<body>
+<body oncontextmenu="return false;">
 
 <!-- APP LOCK SCREEN OVERLAY -->
 <div class="lock-screen" id="lockScreen">
@@ -631,6 +645,21 @@
     const viewport = document.getElementById('viewport');
     const cropFrame = document.getElementById('cropFrame');
     let activeRecognition = null;
+
+    // --- DISABLE RIGHT CLICK & INSPECT SHORTCUTS ---
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+    
+    document.addEventListener('keydown', (e) => {
+        // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S
+        if (
+            e.keyCode === 123 || 
+            (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || 
+            (e.ctrlKey && (e.keyCode === 85 || e.keyCode === 83))
+        ) {
+            e.preventDefault();
+            return false;
+        }
+    });
 
     // --- APP LOCK MANAGEMENT ---
     const HARDCODED_PIN = "3632";
@@ -862,7 +891,7 @@
                 card.className = 'photo-card';
                 card.innerHTML = `
                     <button class="btn-delete-single" onclick="window.deleteSingleImageFromCloud('${folderPath}', '${photoKey}')" title="Delete Image">✕</button>
-                    <img src="${photo.dataUrl}" alt="${photo.name}" onclick="openPreview('${photo.dataUrl}')">
+                    <img src="${photo.dataUrl}" alt="${photo.name}" onclick="openPreview('${photo.dataUrl}')" oncontextmenu="return false;">
                     <div class="photo-label">${photo.name}</div>
                 `;
                 grid.appendChild(card);
